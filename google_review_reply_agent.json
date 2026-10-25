@@ -1,0 +1,387 @@
+{
+  "name": "Google Review Reply Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "google-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "060ef15e-833a-48bb-9b48-efd73c48254c",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a professional and empathetic customer service manager for an HVAC company. Write a short, polite reply to a negative Google review. Apologize sincerely, acknowledge the specific problem, and invite the customer to contact us so we can make it right. Do not make promises about refunds or compensation. Keep the reply under 60 words. Reply in the same language as the review."
+            },
+            {
+              "content": "=Reviewer: {{ $('Webhook').first().json.body.reviewer_name }}\nRating: {{ $('Webhook').first().json.body.rating }}\nReview: {{ $('Webhook').first().json.body.review_text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        -192
+      ],
+      "id": "64c302ef-dd3b-4469-b73b-913c851425cf",
+      "name": "Negative Reply",
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1248,
+        -96
+      ],
+      "id": "8cc4f356-afe1-4454-b3f6-7dcd2005e638",
+      "name": "Merge Replies"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "195d29f4-3286-475d-9ef8-b41e4e8a21e5",
+              "name": "reply",
+              "value": "={{ $json.output[0].content[0].text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1024,
+        -192
+      ],
+      "id": "dc36bd39-d86a-4468-834c-f4b6312d96b5",
+      "name": "Normalize Negative Reply"
+    },
+    {
+      "parameters": {
+        "tableId": "review_replies",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "reviewer_name",
+              "fieldValue": "={{ $('Webhook').first().json.body.reviewer_name }}"
+            },
+            {
+              "fieldId": "rating",
+              "fieldValue": "={{ $('Webhook').first().json.body.rating }}"
+            },
+            {
+              "fieldId": "review_text",
+              "fieldValue": "={{ $('Webhook').first().json.body.review_text }}"
+            },
+            {
+              "fieldId": "reply",
+              "fieldValue": "={{ $json.reply }}"
+            },
+            {
+              "fieldId": "sentiment",
+              "fieldValue": "={{ $('Webhook').first().json.body.rating <= 3 ? 'negative' : 'positive' }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        -96
+      ],
+      "id": "cd2f2c6f-019a-4abd-9088-c0543747886e",
+      "name": "Save Review",
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ddb367d8-6317-4311-af4b-9dae813508d7",
+              "leftValue": "={{ $json.body.review_text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "059f66f1-b1c2-4416-98d6-347c4a8368fb",
+              "leftValue": "={{ $json.body.rating }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "3c1f0a2e-7b1d-4e7a-9a11-5d2f8e6b0c01",
+              "leftValue": "={{ $json.body.rating }}",
+              "rightValue": 5,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "4a95dcad-f252-47f7-b366-2ee4e3c0decd",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "40dafe95-a332-42f5-873c-9174571e610f",
+              "leftValue": "={{ $json.body.rating }}",
+              "rightValue": 3,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        -96
+      ],
+      "id": "d6407179-17f5-4ca2-b748-a3f756b2b6df",
+      "name": "Check Rating"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f9ec8b52-cae9-4787-9bd0-cd22825cfa98",
+              "name": "reply",
+              "value": "=Thank you so much, {{ $('Webhook').first().json.body.reviewer_name }}! We are glad you had a great experience with us. Your feedback means a lot, and we look forward to serving you again.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "8ae75383-ea6e-4d78-8370-5a1702f2e089",
+      "name": "Positive Reply"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"invalid\",\n  \"message\": \"review_text is empty or rating is not between 1 and 5\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        448,
+        96
+      ],
+      "id": "96bd9cdf-d99e-40f2-8aa0-201889bdd526",
+      "name": "Respond Invalid"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', reply: $('Merge Replies').first().json.reply }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1696,
+        -96
+      ],
+      "id": "cd9fb552-d3fc-40f8-acd7-608788eed5cc",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Negative Reply": {
+      "main": [
+        [
+          {
+            "node": "Normalize Negative Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Replies": {
+      "main": [
+        [
+          {
+            "node": "Save Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Negative Reply": {
+      "main": [
+        [
+          {
+            "node": "Merge Replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Review": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Check Rating",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Rating": {
+      "main": [
+        [
+          {
+            "node": "Negative Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Positive Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Positive Reply": {
+      "main": [
+        [
+          {
+            "node": "Merge Replies",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "id": "",
+  "tags": []
+}
